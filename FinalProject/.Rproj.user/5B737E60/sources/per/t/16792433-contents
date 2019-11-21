@@ -1,0 +1,322 @@
+#James Valles 
+#Final Project DSC 441 - Data Science 
+#Detecting Breast Cancer using ML
+#Three ML Models in this script: Decision Tree, KNN, Naive Bayes
+
+
+#Install Packages
+install.packages("ggplot2")
+install.packages("gplots")
+install.packages("corrplot")
+install.packages('pROC')
+install.packages("caret")
+install.packages('rpart')
+install.packages('rpart.plot')
+install.packages('MLmetrics')
+install.packages('e1071')
+
+#Import libraries
+library(tidyverse)
+library(skimr)
+library(ggplot2)
+library(dplyr)
+library(gplots)
+library(corrplot)
+library(pROC)
+library(caret)
+library(rpart)
+library(rpart.plot)
+library(MLmetrics)
+library(e1071)
+
+#First step is importingn my dataset, which was obtained on Kaggle.com 
+df <- read.csv('/Users/jamesvalles/Desktop/dsfinalpro/data.csv')
+
+#Print my data 
+df 
+
+#Data understanding 
+
+#Get a quick glance of my dataset
+head(df)
+
+#I will run str which will give me a good understanding of the types of variables I have including their data type 
+str(df) 
+
+# This will give me further statics to explore my data, specifically number of missing variables, mean, std.
+skim(df) 
+
+#This is another summary statistic. It gives me the min and max values, which I find helpful when looking
+summary(df) 
+
+# at data plausability, and gives me the class break down for variables with factors to help me decide if my dataset is imbalanced. 
+barplot(summary(df$diagnosis)) #Get a better idea visually of my categorical variable distribution
+ggplot(data = df) + geom_histogram(mapping = aes(diagnosis), stat= "count", x = x, fill = y)
+
+#Next I will plot my data to get a better sense of my data's distribution specficially looking for outliers.
+boxplot(x = df$`radius_mean`,  main = 'Radius Mean', ylab = "Mean", col = "gray", border = "black", outcol = "red")
+boxplot(x = df$`texture_mean`,  main = 'Texture Mean', ylab = "Mean", col = "gray", border = "black", outcol = "red")
+boxplot(x = df$`perimeter_mean`,  main = 'Perimeter Mean', ylab = "Mean", col = "gray", border = "black", outcol = "red")
+boxplot(x = df$`area_mean`,  main = 'Area Mean', ylab = "Mean", col = "gray", border = "black", outcol = "red")
+boxplot(x = df$`smoothness_mean`,  main = 'Smoothness Mean', ylab = "Mean", col = "gray", border = "black", outcol = "red")
+boxplot(x = df$`compactness_mean`,  main = 'Compactness Mean', ylab = "Mean", col = "gray", border = "black", outcol = "red")
+boxplot(x = df$`concavity_mean`,  main = 'Concavity Mean', ylab = "Mean", col = "gray", border = "black", outcol = "red")
+boxplot(x = df$`concave.points_mean`,  main = 'Concave Points Mean', ylab = "Mean", col = "gray", border = "black", outcol = "red")
+boxplot(x = df$`symmetry_mean`,  main = 'Symmetry Mean', ylab = "Mean", col = "gray", border = "black", outcol = "red")
+boxplot(x = df$`fractal_dimension_mean`,  main = 'Fractal Dimension Mean', ylab = "Mean", col = "gray", border = "black", outcol = "red")
+boxplot(x = df$`radius_se`,  main = 'Radius Se', ylab = "Standard Error", col = "gray", border = "black", outcol = "red")
+boxplot(x = df$`texture_se`,  main = 'Texture Se', ylab = "Standard Error", col = "gray", border = "black", outcol = "red")
+boxplot(x = df$`perimeter_se`,  main = 'Perimeter Se', ylab = "Standard Error", col = "gray", border = "black", outcol = "red")
+boxplot(x = df$`area_se`,  main = 'Area Se', ylab = "Standard Error", col = "gray", border = "black", outcol = "red")
+boxplot(x = df$`smoothness_se`,  main = 'Smoothness Se', ylab = "Standard Error", col = "gray", border = "black", outcol = "red")
+boxplot(x = df$`compactness_se`,  main = 'Compactness Se', ylab = "Standard Error", col = "gray", border = "black", outcol = "red")
+boxplot(x = df$`concave.points_se`,  main = 'Concave Points Se', ylab = "Standard Error", col = "gray", border = "black", outcol = "red")
+boxplot(x = df$`symmetry_se`,  main = 'Symmetry Se', ylab = "Standard Error", col = "gray", border = "black", outcol = "red")
+boxplot(x = df$`fractal_dimension_se`,  main = 'Fractal Dimension Se', ylab = "Standard Error", col = "gray", border = "black", outcol = "red")
+
+boxplot(x = df$`radius_worst`,  main = 'Radius Worst', ylab = "Largest Mean Value", col = "gray", border = "black", outcol = "red")
+boxplot(x = df$`texture_worst`,  main = 'Texture Worst', ylab = "Largest Mean Value", col = "gray", border = "black", outcol = "red")
+boxplot(x = df$`perimeter_worst`,  main = 'Perimeter Worst', ylab = "Largest Mean Value", col = "gray", border = "black", outcol = "red")
+boxplot(x = df$`smoothness_worst`,  main = 'Smoothness Worst', ylab = "Largest Mean Value", col = "gray", border = "black", outcol = "red")
+boxplot(x = df$`compactness_worst`,  main = 'Compactness Worst', ylab = "Largest Mean Value", col = "gray", border = "black", outcol = "red")
+boxplot(x = df$`concavity_worst`,  main = 'Concavity Worst', ylab = "Largest Mean Value", col = "gray", border = "black", outcol = "red")
+boxplot(x = df$`concave.points_worst`,  main = 'Concave Points Worst', ylab = "Largest Mean Value", col = "gray", border = "black", outcol = "red")
+boxplot(x = df$`symmetry_worst`,  main = 'Symmetry Worst', ylab = "Largest Mean Value", col = "gray", border = "black", outcol = "red")
+boxplot(x = df$`fractal_dimension_worst`,  main = 'Fractal Dimension Worst', ylab = "Largest Mean Value", col = "gray", border = "black", outcol = "red")
+
+# Get a summarized % of the number of outliers in each variable, this will allow me to determine whether outliers are a problem
+n=3
+df %>% summarise_each(funs(sum(. > mean(.) + n*sd(.) | . < mean(.) - n*sd(.))/n()), 
+                      c(3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32))
+
+#Data Preprocessing
+
+#Drop rows that arent needed: id & X
+newdf <- subset(df, select = -c(`id`, `X`, diagnosis))
+
+#Create a heat map to explore similar variables, see if any can be dropped. 
+
+#Create a correlation matrix 
+cor_matrix <- cor(newdf)
+
+#View my matrix, will use pearson algorithm (relation strong (closer to 1), inverse relation (negative number), no relation (anything closer to 0)
+cor_matrix
+
+#Plot my correlation matrix
+corrplot(cor_matrix)
+
+#After analyzing heat map, I will drop the following redundant rows. 
+
+reducedf <- subset(newdf, select = c(1,2,5,6,9,10,11,12,15,16,17,18,19,20,25,29,30))
+cor_matrix <- cor(reducedf)
+corrplot(cor_matrix)
+
+#Plotting to see strong correlation relationship between two variables as indicated in headmap above
+ggplot(data = reducedf) + geom_point(mapping = aes(x = `compactness_se`, y = `concavity_se`))
+
+ggplot(data = df) + geom_point(mapping = aes(x = `area_mean`, y = `radius_mean`,colour = factor(diagnosis)))
+
+
+#Data Modeling 
+
+#Model # 1 - Decision Tree
+
+#Setting seed to ensure I get the same value
+set.seed(123)
+
+#Adding back my classification label 'Diagnosis' into the dataset reduceddf
+diag <- subset(df, select = c(2))
+reducedf$diagnosis <- diag
+
+#Had to convert diagnosis from character to factor 
+reducedf$diagnosis <-  as.factor(df$diagnosis)
+str(reducedf)
+
+#Create a train/test split (this will select the rows to be used)
+inTrain <- createDataPartition(y = reducedf$diagnosis, p = 0.7, list = FALSE)
+training <- reducedf[ inTrain,] 
+testing <- reducedf[-inTrain,] 
+
+#Here I create the tree model based on the training set without any parameters
+tree <- rpart(diagnosis ~ ., data = training)
+
+#I will plot the decision tree (initial run)
+prp(tree, under=TRUE, type=3, varlen = 0, faclen = 0, extra = TRUE)
+
+#Checking to see the most important variables used in the tree model
+tree$variable.importance
+
+#Predicting based on the initial tree without any pruning using training data
+tree.pred = predict(tree, training, type="class")
+
+#The results of my first run using training data 
+confusionMatrix(tree.pred, training$diagnosis)
+
+#Get additional metrics on precision/recall
+confusionMatrix(tree.pred, training$diagnosis, mode = "prec_recall")
+
+#Predicting based on the initial tree without any pruning using testing data
+tree.pred = predict(tree, testing, type="class")
+
+#The results of my first run using testing data 
+confusionMatrix(tree.pred, testing$diagnosis)
+
+#Get additional metrics on precision/recall
+confusionMatrix(tree.pred, testing$diagnosis, mode = "prec_recall")
+
+#Plot the complexity of the tree
+printcp(tree)
+
+#Plot complexity parameters  of tree vs error rate
+plotcp(tree)
+print(tree)
+
+#I will prune the tree based on the optimal complexity paramater obtained from results above:
+pruned <- prune(tree, cp =  0.040)
+
+#Generate the tree visualization
+prp(pruned, under=TRUE, varlen = 0, faclen = 0, extra = TRUE)
+
+#Checking to see the most important variables used in the new tree model
+pruned$variable.importance
+
+#Predicting based on cp parameter tuning and testing set
+pruned.pred = predict(pruned, training, type="class")
+
+#The results of testing pruned tree using testing data 
+confusionMatrix(pruned.pred, training$diagnosis)
+
+#Get additional metrics on precision/recall
+confusionMatrix(pruned.pred, training$diagnosis, mode = "prec_recall")
+
+#Predicting based on cp parameter tuning and testing set
+pruned.pred = predict(pruned, testing, type="class")
+
+#The results of testing pruned tree using testing data 
+confusionMatrix(pruned.pred, testing$diagnosis)
+
+#Get additional metrics on precision/recall
+confusionMatrix(pruned.pred, testing$diagnosis, mode = "prec_recall")
+
+#Create an ROC curve for our original decision tree and pruned tree model on test data
+
+#Generate the probabilities for each row whether M B
+tree_prob = predict(tree, testing, type="prob")
+pruned_prob = predict(pruned, testing, type="prob")
+
+#generate ROC plots for both decision trees. 
+plot(roc((testing$diagnosis),tree_prob[,1]), print.auc=TRUE)
+plot(roc((testing$diagnosis),pruned_prob[,1]), print.auc=TRUE)
+
+#Model #2 - KNN
+
+#Since there are no categorical values, except for my label there is no need to create dummy variables. 
+
+#Create partion to select rows. 
+KNN.inTrain <- createDataPartition(y = reducedf$diagnosis, p = 0.7, list = FALSE)
+
+#Create KNN training set
+KNN.training <- reducedf[inTrain,] 
+
+#Create KNN testing set 
+KNN.testing <- reducedf[-inTrain,] 
+
+#Center and scaling the data so that everything is on the same scale since KNN is distance based. This will generate the instructions. Z-score normalization used. 
+preprocess <- preProcess(KNN.training, method = c("center", "scale"))
+
+#Transforming the values so that they are all scaled. 
+train_transformed <- predict(preprocess, KNN.training)
+test_transformed <- predict(preprocess, KNN.testing)
+
+#Using 5-fold cross-validation to train our model, can adjust later 
+fitControl <- trainControl(method = "repeatedcv", number = 5, repeats = 5)
+
+# Train the KNN model
+knn1 <- train(diagnosis ~ ., data = train_transformed, method = "knn",  trControl = fitControl)
+
+#View results
+knn1
+
+# Plot the accuracy of the KNN model vs number of neighbors used
+plot(knn1)
+
+# Estimate KNN variable importance.
+varImp(knn1)
+
+# The fun part! Here I am predicting the whether or not each row is B or M
+pred <- predict(knn1, newdata = test_transformed)
+
+# Create a confusion matrix to calculate and display performance metrics
+confusionMatrix(pred, KNN.testing$diagnosis)
+
+#Get precision/recall information via confusion matrix, set mode 
+confusionMatrix(pred, KNN.testing$diagnosis, mode = "prec_recall")
+
+#Creating ROC for KNN model 
+
+# Create fit contrrol with classProbs = True
+fitControl_prob <- trainControl(method = "repeatedcv", number = 5, repeats = 5,  classProbs = TRUE, summaryFunction = twoClassSummary)
+
+#Create the KNN model with probabilities 
+knn_prob <- train(diagnosis ~ ., data = train_transformed, method = "knn",  trControl = fitControl_prob, metric='ROC')
+
+#View KNN Stats 
+knn_prob
+
+# Predict the probabilities of the testing data
+pred_prob <- predict(knn_prob, newdata = test_transformed, type = "prob")
+
+# Create an ROC curve for our KNNmodel.
+plot(roc((KNN.testing$diagnosis),pred_prob[,1]), print.auc=TRUE)
+
+
+#Model 3: Naive Bayes
+
+#Gives us the count of same values 
+table(reducedf$radius_mean)  
+
+#Getting rid of near zero variance in data frame 
+nearzero_variance <- nearZeroVar(reducedf, freqCut = 98/2, names=FALSE)
+reducedf_nzv <- reducedf[, -nearzero_variance]
+reducedf_nzv
+
+#Selecting 70% of rows to be used in training set the rest in testing 
+NB.inTrain <- createDataPartition(y = reducedf$diagnosis, p = 0.7, list = FALSE)
+
+# Select training set 
+NB.training <- reducedf[NB.inTrain,] 
+
+#Select testing set
+NB.testing <- reducedf[-NB.inTrain,] 
+
+# Center and scale the data. This is need for NB to work. 
+NB.preprocess <- preProcess(NB.training, method = c("center", "scale"))
+
+#Transforming the data
+NB.train_transformed <- predict(NB.preprocess, NB.training)
+NB.test_transformed <- predict(NB.preprocess, NB.testing)
+
+#Adding fit control Resampling: Cross-Validated (3 fold, repeated 3 times) to check model 
+
+NB.fitControl <- trainControl(method = "repeatedcv", number = 3, repeats = 3)
+
+#Create the Naive Bayes Model 
+bayes <- train(diagnosis ~ ., data = NB.train_transformed, method = "nb", trControl=NB.fitControl)
+
+#Print summaey of model
+bayes
+
+#Calculate Importance variables
+varImp(bayes)
+
+#Make prediction using testing data 
+NB.pred <- predict(bayes, newdata = NB.test_transformed)
+
+#Print out performance summary for NB model 
+confusionMatrix(NB.pred, NB.test_transformed$diagnosis)
+
+#Confusion Matrix including prec_recall information 
+confusionMatrix(NB.pred, NB.test_transformed$diagnosis, mode = "prec_recall")
+
+
+
